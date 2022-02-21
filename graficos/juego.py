@@ -1,39 +1,57 @@
-#Comandos para librerías
-#pip install pyopengl
-#pip install glfw
-
-#Importar librerias
-
 from OpenGL.GL import *
 from glew_wish import *
-from PIL import Image
 import glfw
 import math
 
-
-velocidad = 0.5
-posicion_plr = [0.0, 0.0, 0.0]
+velocidad = 0.8
+posicion_plr = [0.0, -0.8, 0.0]
 posicion_bicho1 = [0.55, 0.55, 0.0]
 posicion_bicho2 = [-0.55, -0.55, 0.0]
 posicion_bicho3 = [0.55, -0.55, 0.0]
 posicion_bicho4 = [-0.55, 0.55, 0.0]
-
+posicion_boss = [0.0, 0.0, 0.0]
+rotacion_boss = 0
+velocidad_angular_boss = 0.5
+direccion_boss = 1
+plr_scale = [1.0,1.0,0.0]
 window = None
-
 tiempo_anterior = 0.0
+angulo_triangulo = 0.0
+fase = 90.0
+velocidad_rotacion_triangulo = 90.0
 
+def actualizar_boss(tiempo_delta):
+    global direccion_boss
+    global velocidad_angular_boss
+    global rotacion_boss
+    global angulo_triangulo
+
+    cantidad_rotacion = velocidad_angular_boss * tiempo_delta
+    rotacion_boss = rotacion_boss + cantidad_rotacion
+    if rotacion_boss > 360.0:
+        rotacion_boss = rotacion_boss - 360.0
+
+    cantidad_movimiento = velocidad_angular_boss * tiempo_delta
+    if direccion_boss == 0:
+        posicion_boss[0] = posicion_boss[0] - cantidad_movimiento
+    elif direccion_boss == 1:
+        posicion_boss[0] = posicion_boss[0] + cantidad_movimiento
+    if posicion_boss[0] <= -0.7 and direccion_boss == 0:
+        direccion_boss = 1
+    if posicion_boss[0] >= 0.7 and direccion_boss == 1:
+        direccion_boss = 0
+    
 def actualizar():
     global tiempo_anterior
     global window
     global posicion_plr
     global posicion_bicho1, posicion_bicho2, posicion_bicho3, posicion_bicho4
+    global posicion_boss
 
     tiempo_actual =  glfw.get_time()
-    #Cuanto tiempo paso entre la ejecución actual y la inmediata anterior de esta función
     tiempo_delta = tiempo_actual - tiempo_anterior
     distancia = velocidad * tiempo_delta
     
-    #leer estados
     estado_tecla_w = glfw.get_key(window, glfw.KEY_W)
     estado_tecla_s = glfw.get_key(window, glfw.KEY_S)
     estado_tecla_d = glfw.get_key(window, glfw.KEY_D)
@@ -41,12 +59,13 @@ def actualizar():
 
     estado_tecla_ESC = glfw.get_key(window, glfw.KEY_ESCAPE)
 
+    actualizar_boss(tiempo_delta)
     
-#revisar estados y realizamos acciones
     if estado_tecla_w == glfw.PRESS:
         posicion_plr[1] = posicion_plr[1] + distancia
         if posicion_plr[1] >= 0.9:
             posicion_plr[1] = -0.8999
+
     if estado_tecla_s == glfw.PRESS:
         posicion_plr[1] = posicion_plr[1] - distancia
         if posicion_plr[1] <= -0.9:
@@ -62,9 +81,6 @@ def actualizar():
 
     if estado_tecla_ESC == glfw.PRESS:
         glfw.set_window_should_close(window, 1)
-
-    #Determinar tiempo
-
     tiempo_anterior = tiempo_actual
 
 def colisionando_bicho1():
@@ -103,24 +119,44 @@ def colisionando_bicho4():
         colisionando = True
     return colisionando
 
+def colisionando_boss():
+    colisionando = False
+    if (posicion_plr[0] + 0.05 >= posicion_boss[0] - 0.05 
+        and posicion_plr[0] - 0.05 <= posicion_boss[0] + 0.05 
+        and posicion_plr[1] + 0.05 >= posicion_boss[1] - 0.05 
+        and posicion_plr[1] - 0.05 <= posicion_boss[1] + 0.05):
+        colisionando = True 
+    return colisionando
+
+
 def draw_plr():
     global posicion_plr
     global posicion_bicho1
     global posicion_bicho2
     global posicion_bicho3
     global posicion_bicho4
-
+    global posicion_boss
+    global velocidad
+    global plr_scale
     glPushMatrix()
     glTranslatef(posicion_plr[0], posicion_plr[1],0.0)
+    glScalef(plr_scale[0],plr_scale[1],0.0)
     glBegin(GL_TRIANGLES)
+
+
     if colisionando_bicho1():
-            posicion_bicho1 = (1.5,1.5,0)
+            posicion_bicho1 = [1.5,1.5,0]
     if colisionando_bicho2():
-            posicion_bicho2 = (1.5,1.5,0)
+            posicion_bicho2 = [1.5,1.5,0]
     if colisionando_bicho3():
-            posicion_bicho3 = (1.5,1.5,0)
+            posicion_bicho3 = [1.5,1.5,0]
     if colisionando_bicho4():
-            posicion_bicho4 = (1.5,1.5,0)
+            posicion_bicho4 = [1.5,1.5,0]
+    if colisionando_boss():
+            posicion_boss = [0.0,2.0,0]
+            velocidad = 0.3
+            plr_scale = [0.5,0.5,0.0]
+
     else:
         glColor3f(1,0,0)
     glVertex3f(-0.05,-0.05,0)
@@ -129,54 +165,105 @@ def draw_plr():
     glEnd()
     glPopMatrix()
 
+def draw_boss():
+    global posicion_boss
+    glPushMatrix()
+    glTranslatef(posicion_boss[0], posicion_boss[1], 0.0)
+    glRotatef(rotacion_boss,0.0,0.0,1.0)
+    glScalef(3,3,0)
+    glBegin(GL_POLYGON)
+    glColor3f(0.5, 0.1, 0.4)
+    glVertex3f(-0.01,0.01,0.0)
+    glVertex3f(0.00,0.01,0.0)
+    glVertex3f(0.01,-0.00,0.0)
+    glVertex3f(0.01,-0.01,0.0)
+    glVertex3f(0.0,-0.02,0.0)
+    glVertex3f(-0.01,-0.02,0.0)
+    glVertex3f(-0.02,-0.01,0.0)
+    glVertex3f(-0.02,-0.00,0.0)
+    glEnd()
+    glPopMatrix()
+
 def draw_bichos():
     global posicion_bicho1, posicion_bicho2, posicion_bicho3, posicion_bicho4
     #bicho 1
     glPushMatrix()
     glTranslatef(posicion_bicho1[0], posicion_bicho1[1],0.0)
-    glBegin(GL_QUADS)
-    glColor3f(.8,0.2,.46)
-    glVertex3f(-0.05,0.05,0)
-    glVertex3f(0.05,0.05,0)
-    glVertex3f(0.05,-0.05,0)
-    glVertex3f(-0.05,-0.05,0)
+    glRotatef(-90,0,0,1)
+    glScalef(2,2,0)
+    glBegin(GL_POLYGON)
+    glColor3f(.3,0.2,.46)
+    glVertex3f(-0.02,0.01,0)
+    glVertex3f(-0.01,0.0,0)
+    glVertex3f(-0.02,-0.01,0)
+    glVertex3f(-0.0,-0.03,0)
+    glVertex3f(0.02,-0.01,0)
+    glVertex3f(0.01,0.00,0)
+    glVertex3f(0.02,0.01,0)
+    glVertex3f(0.00,0.03,0)
     glEnd()
     glPopMatrix()
     #bicho 2
     glPushMatrix()
     glTranslatef(posicion_bicho2[0], posicion_bicho2[1],0.0)
-    glBegin(GL_QUADS)
-    glColor3f(.8,0.2,.46)
-    glVertex3f(-0.05,0.05,0)
-    glVertex3f(0.05,0.05,0)
-    glVertex3f(0.05,-0.05,0)
-    glVertex3f(-0.05,-0.05,0)
+    glRotatef(90,0,0,1)
+    glScalef(2,2,0)
+    glBegin(GL_POLYGON)
+    glColor3f(.55,0.26,.40)
+    glVertex3f(-0.02,0.01,0)
+    glVertex3f(-0.01,0.0,0)
+    glVertex3f(-0.02,-0.01,0)
+    glVertex3f(-0.0,-0.03,0)
+    glVertex3f(0.02,-0.01,0)
+    glVertex3f(0.01,0.00,0)
+    glVertex3f(0.02,0.01,0)
+    glVertex3f(0.00,0.03,0)
     glEnd()
     glPopMatrix()
     #bicho 3
     glPushMatrix()
     glTranslatef(posicion_bicho3[0], posicion_bicho3[1],0.0)
-    glBegin(GL_QUADS)
-    glColor3f(.8,0.2,.46)
-    glVertex3f(-0.05,0.05,0)
-    glVertex3f(0.05,0.05,0)
-    glVertex3f(0.05,-0.05,0)
-    glVertex3f(-0.05,-0.05,0)
+    glRotatef(90,0,0,1)
+    glScalef(2,2,0)
+    glBegin(GL_POLYGON)
+    glColor3f(.75,0.18,.38)
+    glVertex3f(-0.02,0.01,0)
+    glVertex3f(-0.01,0.0,0)
+    glVertex3f(-0.02,-0.01,0)
+    glVertex3f(-0.0,-0.03,0)
+    glVertex3f(0.02,-0.01,0)
+    glVertex3f(0.01,0.00,0)
+    glVertex3f(0.02,0.01,0)
+    glVertex3f(0.00,0.03,0)
     glEnd()
     glPopMatrix()
     #bicho 4
     glPushMatrix()
     glTranslatef(posicion_bicho4[0], posicion_bicho4[1],0.0)
-    glBegin(GL_QUADS)
-    glColor3f(.8,0.2,.46)
-    glVertex3f(-0.05,0.05,0)
-    glVertex3f(0.05,0.05,0)
-    glVertex3f(0.05,-0.05,0)
-    glVertex3f(-0.05,-0.05,0)
+    glRotatef(-90,0,0,1)
+    glScalef(2,2,0)
+    glBegin(GL_POLYGON)
+    glColor3f(.86,0.36,.55)
+    glVertex3f(-0.02,0.01,0)
+    glVertex3f(-0.01,0.0,0)
+    glVertex3f(-0.02,-0.01,0)
+    glVertex3f(-0.0,-0.03,0)
+    glVertex3f(0.02,-0.01,0)
+    glVertex3f(0.01,0.00,0)
+    glVertex3f(0.02,0.01,0)
+    glVertex3f(0.00,0.03,0)
     glEnd()
     glPopMatrix()
 
 def draw_walls():
+    glBegin(GL_LINE_LOOP)
+    glColor3f(0.0,0.0,0.0)
+    glVertex3f(-0.9,-0.9,0.0)
+    glVertex3f(0.9,-0.9,0.0)
+    glVertex3f(0.9,0.9,0.0)
+    glVertex3f(-0.9, 0.9,0.0)
+    glVertex3f(-0.9,-0.9,0.0)
+    glEnd()
     #wall 1
     glBegin(GL_QUADS)
     glColor3f(0.4,0.65,0.15)
@@ -227,10 +314,19 @@ def decos():
     glVertex3f(-0.11,-0.36,0)
     glEnd()
 
+
+    glBegin(GL_TRIANGLES)
+    glColor3f(0.27,0.68,0.22)
+    glVertex3f(-0.85, -0.74,.0)
+    glVertex3f(-0.66,-.80,0)
+    glVertex3f(-0.76,-0.87,0)
+    glEnd()
+
 def draw():
     decos()
     draw_plr()
     draw_walls()
+    draw_boss()
     draw_bichos()
 
 def main():
